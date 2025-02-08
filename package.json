@@ -3,7 +3,15 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+    "prisma:generate": "prisma generate",
+    "prisma:push": "prisma db push",
+    "postinstall": "prisma generate",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "docs": "typedoc"
   },
   "repository": {
     "type": "git",
@@ -16,5 +24,29 @@
     "url": "https://github.com/lucas-309/hackNYU/issues"
   },
   "homepage": "https://github.com/lucas-309/hackNYU#readme",
-  "description": ""
+  "description": "GPT Wrapper healthcare: meal prep helping app that takes in fitness goals, what you have available in fridge, etc. and builds a schedule of recipes according to all that create schedules could also add your own vary by cooking skill and etc save recipes you like reccomendations for things you can make with certain ingredients maybe a social media-eque way to post recipes to share and stuff.",
+  "dependencies": {
+    "@prisma/client": "^6.3.1",
+    "@types/jsonwebtoken": "^9.0.8",
+    "fastify": "^5.2.1",
+    "fastify-plugin": "^5.0.1",
+    "jest-mock-extended": "^4.0.0-beta1",
+    "jsonwebtoken": "^9.0.2",
+    "mongodb": "6.13",
+    "tsc": "^2.0.4",
+    "typedoc-plugin-markdown": "^4.4.1"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.12",
+    "@types/node": "^22.13.1",
+    "@types/supertest": "^6.0.2",
+    "jest": "^29.7.0",
+    "prisma": "^6.3.1",
+    "supertest": "^6.3.4",
+    "ts-jest": "^29.1.2",
+    "ts-node-dev": "^2.0.0",
+    "tsx": "^4.19.2",
+    "typedoc": "^0.27.6",
+    "typescript": "^5.7.3"
+  }
 }

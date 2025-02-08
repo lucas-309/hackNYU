@@ -1,0 +1,20 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": ["./src/routes"],
+  "entryPointStrategy": "expand",
+  "out": "docs",
+  "excludePrivate": true,
+  "excludeProtected": true,
+  "excludeExternals": true,
+  "excludeNotDocumented": false,
+  "plugin": ["typedoc-plugin-markdown"],
+  "theme": "default",
+  "name": "Recipe API Documentation",
+  "exclude": ["**/tests/**/*", "**/node_modules/**/*"],
+  "groupOrder": ["Authentication", "Recipes", "User", "Fitness"],
+  "categorizeByGroup": true,
+  "categoryOrder": ["Endpoints", "Models", "*"],
+  "readme": "none",
+  "defaultCategory": "Endpoints",
+  "customCss": "./docs-theme/style.css"
+} 

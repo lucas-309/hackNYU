@@ -1,0 +1,16 @@
+{
+  "source": {
+    "include": ["src"],
+    "exclude": ["src/tests"],
+    "includePattern": ".+\\.ts$"
+  },
+  "plugins": ["jsdoc-plugin-typescript"],
+  "opts": {
+    "destination": "docs",
+    "recurse": true,
+    "readme": "README.md"
+  },
+  "typescript": {
+    "moduleRoot": "src"
+  }
+} 
