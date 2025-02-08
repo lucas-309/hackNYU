@@ -211,7 +211,6 @@ describe('Recipe Routes', () => {
       prismaMock.fitnessGoals.findFirst.mockResolvedValue(testFitnessGoals);
       prismaMock.user.findUnique.mockResolvedValue(testUser);
 
-      // Mock Python process error
       const mockSpawn = spawn as jest.MockedFunction<typeof spawn>;
       mockSpawn.mockImplementation(() => {
         const mockProcess = {
@@ -225,13 +224,15 @@ describe('Recipe Routes', () => {
           stderr: {
             on: jest.fn((event, callback) => {
               if (event === 'data') {
-                callback('AI generation error');
+                callback(Buffer.from('Error initializing AI model: Invalid API key'));
               }
             })
           },
           on: jest.fn((event, callback) => {
             if (event === 'close') {
               callback(1);
+            } else if (event === 'error') {
+              callback(new Error('Failed to start Python process'));
             }
           })
         };

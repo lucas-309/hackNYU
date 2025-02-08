@@ -1,6 +1,7 @@
 import { spawn } from 'child_process';
 import { FitnessGoals, User, Recipe } from '@prisma/client';
 import { Recipe as AIRecipe } from '../types/api';
+import path from 'path';
 
 interface AIRecipeInput {
   goals: string;
@@ -54,44 +55,62 @@ export async function generateRecipe(
   };
 
   return new Promise((resolve, reject) => {
-    const pythonProcess = spawn('python3', ['ai.py'], {
-      stdio: ['pipe', 'pipe', 'pipe']
+    // Get absolute path to Python script
+    const scriptPath = path.resolve(__dirname, '../../../ai.py');
+    console.log('Python script path:', scriptPath);
+
+    const pythonProcess = spawn('python3', [scriptPath], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: {
+        ...process.env,
+        PYTHONUNBUFFERED: '1' // Enable unbuffered output
+      }
     });
 
     let result = '';
     let error = '';
 
     pythonProcess.stdout.on('data', (data) => {
+      console.log('Python stdout:', data.toString());
       result += data.toString();
     });
 
     pythonProcess.stderr.on('data', (data) => {
+      console.error('Python stderr:', data.toString());
       error += data.toString();
     });
 
+    pythonProcess.on('error', (err) => {
+      console.error('Failed to start Python process:', err);
+      reject(new Error(`Failed to start Python process: ${err.message}`));
+    });
+
     pythonProcess.on('close', (code) => {
+      console.log(`Python process exited with code ${code}`);
       if (code !== 0) {
         reject(new Error(`Python process exited with code ${code}: ${error}`));
       } else {
         try {
           const aiRecipe = JSON.parse(result);
-          // Convert AI recipe format to Prisma Recipe format
           const recipe = {
             name: aiRecipe.name,
             ingredients: JSON.stringify(aiRecipe.ingredients),
             steps: aiRecipe.instructions.join('\n'),
-            image: '', // We could potentially generate this
+            image: '',
             savedByUserId: null,
             viewedByUserId: null
           };
           resolve(recipe);
         } catch (e) {
-          reject(new Error(`Failed to parse Python output: ${result}`));
+          reject(new Error(`Failed to parse Python output: ${result}\nError: ${e.message}`));
         }
       }
     });
 
-    pythonProcess.stdin.write(JSON.stringify(input));
+    // Write input to Python process
+    const inputStr = JSON.stringify(input);
+    console.log('Sending input to Python:', inputStr);
+    pythonProcess.stdin.write(inputStr);
     pythonProcess.stdin.end();
   });
 } 
