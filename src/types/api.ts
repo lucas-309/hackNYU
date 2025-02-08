@@ -77,6 +77,43 @@ export namespace Recipe {
     /** Author's user ID */
     authorId: string | null;
   }
+
+  export interface GenerateRequest {
+    /** List of ingredients to use */
+    ingredients: string[];
+    /** Cooking skill level (1-3) */
+    skillLevel?: 1 | 2 | 3;
+    /** Preferred cooking time in minutes */
+    maxCookingTime?: number;
+    /** Specific dietary preferences */
+    preferences?: {
+      /** Whether to make vegetarian recipes */
+      vegetarian?: boolean;
+      /** Whether to make vegan recipes */
+      vegan?: boolean;
+      /** Whether to make low-carb recipes */
+      lowCarb?: boolean;
+      /** Whether to make high-protein recipes */
+      highProtein?: boolean;
+    };
+  }
+
+  export interface GeneratedRecipe {
+    name: string;
+    ingredients: Array<{
+      item: string;
+      quantity: string;
+    }>;
+    instructions: string[];
+    cookingTime: number;
+    difficulty: string;
+    nutritionalInfo: {
+      calories: number;
+      protein?: number;
+      carbs?: number;
+      fat?: number;
+    };
+  }
 }
 
 /**

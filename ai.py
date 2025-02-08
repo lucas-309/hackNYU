@@ -8,9 +8,17 @@ from typing import Optional, List, Dict, Any
 import requests
 import getpass
 import os
+import sys
+import json
+from dotenv import load_dotenv
 
-if not os.environ.get("MISTRAL_API_KEY"):
-  os.environ["MISTRAL_API_KEY"] =  "oopsie whoopsie"
+# Load environment variables
+load_dotenv()
+
+# Get API key from environment
+MISTRAL_API_KEY = os.getenv('MISTRAL_API_KEY')
+if not MISTRAL_API_KEY:
+    raise ValueError("MISTRAL_API_KEY not found in environment variables")
 
 from langchain.chat_models import init_chat_model
 
@@ -24,18 +32,14 @@ class Recipe(BaseModel):
     difficulty: str
     nutritional_info: Dict[str,float]
 
-class DayPlan(BaseModel):
-    day : str 
-    meals: Dict[str, Recipe]
-class MealPlan(BaseModel):
-    days: List[DayPlan]
-
 class UserInput(BaseModel):
     goals: str
     ingredients: List[str]
     skill: int = Field(..., ge=1, le=3, description="1: Beginner, 2: Intermediate, 3: Expert")
     restrictions: List[str]
-    calories: float 
+    calories: float
+    preferences: Dict[str, bool] = Field(default_factory=dict)
+    maxCookingTime: Optional[int] = None
 
     @field_validator('skill')
     def validate_skill(cls, v):
@@ -43,9 +47,9 @@ class UserInput(BaseModel):
             raise ValueError("Skill must be between 1-3")
         return v 
     
-class MealGenerator:
+class RecipeGenerator:
     def __init__(self):
-        self.parser = PydanticOutputParser(pydantic_object=MealPlan)
+        self.parser = PydanticOutputParser(pydantic_object=Recipe)
 
         self.skill_levels = {
             1: "beginner (simple recipes, <30 mins, basic techniques)",
@@ -53,33 +57,36 @@ class MealGenerator:
             3: "expert (complex methods, gourmet ingredients, >60 mins)"
         }
 
-        self.prompt = ChatPromptTemplate.from_template( 
-            """As a professional nutritionist and chef, create a 7-day meal plan that:
-        - Helps achieve: {goals}
-        - Uses primarily: {ingredients}
-        - Cooking skill level: {skill_description} (user selected level {skill})
-        - Target daily calories: {calories}
-        - Dietary restrictions: {restrictions}
-        - Provide different meals for each of the 7 days (Breakfast, Lunch, Dinner).
-        - Try to ensure lunch and dinner items have more calories and nutrional value than breakfast. Do not write typically breakfast meals for lunch or dinner.
-        - **IMPORTANT**: For each meal, ensure you include:
-        - name (string)
-        - ingredients (list of dicts)
-        - instructions (list of strings)
-        - cooking_time (int)
-        - difficulty (string)
-        - nutritional_info (dict of floats, must include at least "calories")
-        - Do not leave any field empty or missing.
+        self.prompt = ChatPromptTemplate.from_template(
+            """As a professional chef, create a recipe that:
+            - Helps achieve: {goals}
+            - Uses primarily: {ingredients}
+            - Cooking skill level: {skill_description} (user selected level {skill})
+            - Target calories: {calories}
+            - Dietary restrictions: {restrictions}
+            {cooking_time_constraint}
+            {dietary_preferences}
+            
+            Ensure the recipe includes:
+            - A descriptive name
+            - Detailed ingredients list with quantities
+            - Clear step-by-step instructions
+            - Cooking time in minutes (must be under {max_cooking_time} minutes)
+            - Difficulty level
+            - Complete nutritional information
 
-        {format_instructions}
+            {format_instructions}
 
-        Return ONLY the JSON, no extra text or explanation."""
+            Return ONLY the JSON, no extra text."""
         )
 
         self.chain = (
             RunnablePassthrough.assign(
                 format_instructions=lambda _: self.parser.get_format_instructions(),
-                skill_description=lambda x: self.skill_levels[x["skill"]]
+                skill_description=lambda x: self.skill_levels[x["skill"]],
+                cooking_time_constraint=lambda x: f"- Must be prepared in under {x['maxCookingTime']} minutes" if x.get('maxCookingTime') else "",
+                dietary_preferences=self._format_preferences,
+                max_cooking_time=lambda x: x.get('maxCookingTime', 120)
             )
             | self.prompt
             | model
@@ -87,80 +94,37 @@ class MealGenerator:
             | self.parser
         )
     
-    def generate_meal_plan(self, user_input: dict) -> MealPlan: 
-        try: 
+    def generate_recipe(self, user_input: dict) -> Recipe:
+        try:
             return self.chain.invoke(user_input)
-        except Exception as e: 
-            print(f'Error generating meal plan: {e}')
-            return None 
-        
+        except Exception as e:
+            print(f'Error generating recipe: {e}')
+            return None
+
     def _clean_response(self, response) -> str:
-        content = response.content if hasattr(response, 'content') else response 
+        content = response.content if hasattr(response, 'content') else response
         cleaned = content.strip().removeprefix('```json').removesuffix('```').strip()
-        return cleaned 
-    
-    def print_meal_plan(self, meal_plan: MealPlan):
-        for day_plan in meal_plan.days:
-            print(f"\n{day_plan.day}:")
+        return cleaned
+
+    def _format_preferences(self, input_data: dict) -> str:
+        prefs = input_data.get('preferences', {})
+        if not prefs:
+            return ""
         
-        # Track the total calories for the day
-            daily_calories = 0
+        pref_strings = []
+        if prefs.get('vegetarian'): pref_strings.append("Must be vegetarian")
+        if prefs.get('vegan'): pref_strings.append("Must be vegan")
+        if prefs.get('lowCarb'): pref_strings.append("Should be low in carbohydrates")
+        if prefs.get('highProtein'): pref_strings.append("Should be high in protein")
         
-            for meal_type, recipe in day_plan.meals.items():
-                print(f"  {meal_type.capitalize()}: {recipe.name}")
-                print(f"    Cooking Time: {recipe.cooking_time} mins")
-                print(f"    Difficulty: {recipe.difficulty}")
-
-            # Calories for this recipe
-                meal_calories = recipe.nutritional_info.get('calories', 0)
-                daily_calories += meal_calories
-
-            # Print full nutritional info (if present)
-                if recipe.nutritional_info:
-                    print("    Nutritional Info:")
-                    for key, value in recipe.nutritional_info.items():
-                        print(f"      {key.capitalize()}: {value}")
-
-            # Print ingredient list
-                print("    Ingredients:")
-                for ingredient_dict in recipe.ingredients:
-                # Each dict might look like {"item": "chicken breast", "quantity": "100g"}
-                    line_items = [f"{k}: {v}" for k, v in ingredient_dict.items()]
-                    print(f"      - {', '.join(line_items)}")
-
-            # Print instructions
-                print("    Instructions:")
-                for step_num, step in enumerate(recipe.instructions, start=1):
-                    print(f"      {step_num}. {step}")
-
-        # After listing all meals, print the daily total calories
-            print(f"  Total Daily Calories: {daily_calories}")
-test_input = {
-    "goals": "Lose weight while maintaining muscle mass",
-    "ingredients": [
-        "chicken breast",
-        "broccoli",
-        "brown rice",
-        "eggs",
-        "oatmeal",
-        "avocados",
-        "tomatoes",
-        "almond milk"
-    ],
-    "skill": 2,  # 1=Beginner, 2=Intermediate, 3=Expert
-    "restrictions": ["gluten-free", "lactose intolerant"],
-    "calories": 1800.0
-}
+        return "- " + "\n- ".join(pref_strings) if pref_strings else ""
 
 if __name__ == "__main__":
-    # Create an instance of the MealGenerator
-    generator = MealGenerator()
-
-    # Invoke the meal generation with the test input
-    meal_plan = generator.generate_meal_plan(test_input)
-
-    # Print the resulting meal plan to verify the structure and content
-    if meal_plan:
-        generator.print_meal_plan(meal_plan)
+    input_data = json.loads(sys.stdin.read())
+    generator = RecipeGenerator()
+    recipe = generator.generate_recipe(input_data)
+    
+    if recipe:
+        print(json.dumps(recipe.model_dump()))
     else:
-        print("No meal plan generated.")
+        sys.exit(1)

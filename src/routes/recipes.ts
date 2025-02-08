@@ -7,6 +7,7 @@
 import { FastifyInstance } from "fastify";
 import { PrismaClient } from "@prisma/client";
 import { Recipe } from "../types/api";
+import { generateRecipe } from "../utils/recipeAI";
 
 export interface CreateRecipeRequest {
   /** Recipe name */
@@ -28,6 +29,12 @@ export interface UpdateRecipeRequest {
   steps?: string;
   /** Recipe image URL */
   image?: string;
+}
+
+// Add new interface for AI generation request
+export interface GenerateRecipeRequest {
+  ingredients: string[];
+  skillLevel?: 1 | 2 | 3;
 }
 
 /**
@@ -104,6 +111,25 @@ export default async function recipeRoutes(server: FastifyInstance, prisma: Pris
     }
   });
 
+  /**
+   * Get a specific recipe by ID and add to user's view history
+   * 
+   * @endpoint GET /recipes/:id
+   * @security bearer
+   * @response {@link Recipe.RecipeResponse}
+   * 
+   * @example Success Response (200)
+   * ```json
+   * {
+   *   "id": "1",
+   *   "name": "Spaghetti Carbonara",
+   *   "ingredients": "Pasta, eggs, pecorino...",
+   *   "steps": "1. Boil pasta...",
+   *   "image": "https://...",
+   *   "authorId": "user123"
+   * }
+   * ```
+   */
   server.get('/recipes/:id', {
     onRequest: [server.authenticate],
     handler: async (request, reply) => {
@@ -177,6 +203,20 @@ export default async function recipeRoutes(server: FastifyInstance, prisma: Pris
     }
   });
 
+  /**
+   * Delete a recipe
+   * 
+   * @endpoint DELETE /recipes/:id
+   * @security bearer
+   * @response {@link Recipe.DeleteResponse}
+   * 
+   * @example Success Response (200)
+   * ```json
+   * {
+   *   "message": "Recipe deleted successfully"
+   * }
+   * ```
+   */
   server.delete('/recipes/:id', {
     onRequest: [server.authenticate],
     handler: async (request, reply) => {
@@ -194,6 +234,87 @@ export default async function recipeRoutes(server: FastifyInstance, prisma: Pris
 
       await prisma.recipe.delete({ where: { id } });
       return { message: 'Recipe deleted successfully' };
+    }
+  });
+
+  /**
+   * Generate a recipe using AI based on user preferences and fitness goals
+   * 
+   * @endpoint POST /recipes/generate
+   * @security bearer
+   * @request {@link Recipe.GenerateRequest}
+   * @response {@link Recipe.RecipeResponse}
+   * 
+   * @example Request
+   * ```json
+   * {
+   *   "ingredients": ["Pasta", "eggs", "pecorino"],
+   *   "skillLevel": 2,
+   *   "preferences": "vegetarian",
+   *   "maxCookingTime": 30
+   * }
+   * ```
+   */
+  server.post<{
+    Body: Recipe.GenerateRequest;
+    Reply: Recipe.RecipeResponse | { error: string };
+  }>('/recipes/generate', {
+    onRequest: [server.authenticate],
+    handler: async (request, reply) => {
+      const userId = request.user!.userId;
+      const { 
+        ingredients,          // Required ingredients to use
+        skillLevel = 2,      // Cooking skill level (1-3, default: 2)
+        preferences,         // Dietary preferences (vegetarian, vegan, etc.)
+        maxCookingTime      // Maximum cooking time in minutes
+      } = request.body;
+
+      // Ensure user has set fitness goals
+      const fitnessGoals = await prisma.fitnessGoals.findFirst({
+        where: { userId }
+      });
+
+      if (!fitnessGoals) {
+        return reply.status(400).send({ 
+          error: 'Please set your fitness goals before generating recipes' 
+        });
+      }
+
+      // Get user profile for additional preferences
+      const user = await prisma.user.findUnique({
+        where: { id: userId }
+      });
+
+      if (!user) {
+        return reply.status(404).send({ error: 'User not found' });
+      }
+
+      try {
+        // Generate recipe using AI
+        const recipeData = await generateRecipe(
+          user, 
+          fitnessGoals, 
+          ingredients,
+          skillLevel,
+          preferences,
+          maxCookingTime
+        );
+        
+        // Save generated recipe to database
+        const recipe = await prisma.recipe.create({
+          data: {
+            ...recipeData,
+            authorId: userId
+          }
+        });
+
+        return recipe;
+      } catch (error) {
+        console.error('Recipe generation error:', error);
+        return reply.status(500).send({ 
+          error: 'Failed to generate recipe' 
+        });
+      }
     }
   });
 } 
