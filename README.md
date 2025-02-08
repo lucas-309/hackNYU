@@ -1,4 +1,4 @@
-GPT Wrapper healthcare: meal prep helping app that takes in fitness goals, what you have available in fridge, etc. and builds a schedule of recipes according to all that
+meal prep helping app that takes in fitness goals, what you have available in fridge, etc. and builds a schedule of recipes according to all that
 create schedules
 could also add your own
 vary by cooking skill and etc
