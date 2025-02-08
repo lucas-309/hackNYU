@@ -4,4 +4,4 @@ could also add your own
 vary by cooking skill and etc
 save recipes you like
 reccomendations for things you can make with certain ingredients
-maybe a social media-eque way to post recipes to share and stuff
+maybe a social media-eque way to post recipes to share and stuff.
