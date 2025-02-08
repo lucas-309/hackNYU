@@ -1,0 +1,24 @@
+.tsd-typography {
+  line-height: 1.6;
+}
+
+.tsd-panel-group {
+  margin: 2em 0;
+  padding: 2em;
+  border-radius: 8px;
+  background: #f8f9fa;
+}
+
+.tsd-endpoint {
+  margin: 1em 0;
+  padding: 1em;
+  border-left: 4px solid #0066cc;
+  background: #fff;
+}
+
+.tsd-example {
+  margin: 1em 0;
+  padding: 1em;
+  background: #f1f3f5;
+  border-radius: 4px;
+} 

@@ -1,14 +1,14 @@
-[**Recipe API Documentation**](../../../README.md)
+[**Recipe API Documentation**](../../README.md)
 
 ***
 
-[Recipe API Documentation](../../../modules.md) / [routes/auth](../README.md) / default
+[Recipe API Documentation](../../README.md) / [auth](../README.md) / default
 
 # Function: default()
 
 > **default**(`server`, `prisma`): `Promise`\<`void`\>
 
-Defined in: [src/routes/auth.ts:28](https://github.com/arniber21/hackNYU-backend/blob/41dfafae9a025c928f718d5b479421bfcaba11bf/src/routes/auth.ts#L28)
+Defined in: [auth.ts:37](https://github.com/arniber21/hackNYU-backend/blob/a36628e39c1ef7700a4906f448b936b351e377d1/src/routes/auth.ts#L37)
 
 Register authentication routes
 

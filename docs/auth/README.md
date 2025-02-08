@@ -2,20 +2,16 @@
 
 ***
 
-[Recipe API Documentation](../modules.md) / auth
+[Recipe API Documentation](../README.md) / auth
 
 # auth
 
-Authentication utilities for JWT token generation and verification
+## Functions
+
+- [default](functions/default.md)
 
 ## Interfaces
 
-- [JWTPayload](interfaces/JWTPayload.md)
-
-## Functions
-
-- [authenticateRequest](functions/authenticateRequest.md)
-- [generateSalt](functions/generateSalt.md)
-- [generateToken](functions/generateToken.md)
-- [hashPassword](functions/hashPassword.md)
-- [verifyToken](functions/verifyToken.md)
+- [AuthResponse](interfaces/AuthResponse.md)
+- [LoginRequest](interfaces/LoginRequest.md)
+- [RegisterRequest](interfaces/RegisterRequest.md)

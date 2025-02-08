@@ -1,11 +1,34 @@
 /**
- * Recipe management routes
- * @module routes/recipes
+ * Recipe management API endpoints
+ * 
+ * @group Recipes
  */
 
 import { FastifyInstance } from "fastify";
 import { PrismaClient } from "@prisma/client";
 import '../plugins/types'; // Import type extensions
+
+export interface CreateRecipeRequest {
+  /** Recipe name */
+  name: string;
+  /** List of ingredients */
+  ingredients: string;
+  /** Cooking steps */
+  steps: string;
+  /** Recipe image URL */
+  image: string;
+}
+
+export interface UpdateRecipeRequest {
+  /** Recipe name */
+  name?: string;
+  /** List of ingredients */
+  ingredients?: string;
+  /** Cooking steps */
+  steps?: string;
+  /** Recipe image URL */
+  image?: string;
+}
 
 /**
  * Register recipe routes
@@ -15,9 +38,22 @@ import '../plugins/types'; // Import type extensions
 export default async function recipeRoutes(server: FastifyInstance, prisma: PrismaClient) {
   /**
    * Get all recipes
-   * @route GET /recipes
-   * @authentication Required
-   * @returns {Array<Recipe>} List of recipes
+   * 
+   * @endpoint GET /recipes
+   * @security bearer
+   * 
+   * @example Success Response (200)
+   * ```json
+   * [
+   *   {
+   *     "id": "1",
+   *     "name": "Spaghetti Carbonara",
+   *     "ingredients": "Pasta, eggs, pecorino...",
+   *     "steps": "1. Boil pasta...",
+   *     "image": "https://..."
+   *   }
+   * ]
+   * ```
    */
   server.get('/recipes', {
     onRequest: [server.authenticate],
@@ -34,16 +70,32 @@ export default async function recipeRoutes(server: FastifyInstance, prisma: Pris
 
   /**
    * Create a new recipe
-   * @route POST /recipes
-   * @authentication Required
-   * @param {object} request.body - Recipe data
-   * @param {string} request.body.name - Recipe name
-   * @param {string} request.body.ingredients - Recipe ingredients
-   * @param {string} request.body.steps - Recipe steps
-   * @param {string} request.body.image - Recipe image URL
-   * @returns {Recipe} Created recipe
+   * 
+   * @endpoint POST /recipes
+   * @security bearer
+   * 
+   * @example Request
+   * ```json
+   * {
+   *   "name": "Spaghetti Carbonara",
+   *   "ingredients": "Pasta, eggs, pecorino...",
+   *   "steps": "1. Boil pasta...",
+   *   "image": "https://..."
+   * }
+   * ```
+   * 
+   * @example Success Response (200)
+   * ```json
+   * {
+   *   "id": "1",
+   *   "name": "Spaghetti Carbonara",
+   *   "ingredients": "Pasta, eggs, pecorino...",
+   *   "steps": "1. Boil pasta...",
+   *   "image": "https://..."
+   * }
+   * ```
    */
-  server.post('/recipes', {
+  server.post<{ Body: CreateRecipeRequest }>('/recipes', {
     onRequest: [server.authenticate],
     handler: async (request, reply) => {
       const { name, ingredients, steps, image } = request.body as { 

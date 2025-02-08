@@ -1,14 +1,14 @@
-[**Recipe API Documentation**](../../../README.md)
+[**Recipe API Documentation**](../../README.md)
 
 ***
 
-[Recipe API Documentation](../../../modules.md) / [routes/fitness](../README.md) / default
+[Recipe API Documentation](../../README.md) / [fitness](../README.md) / default
 
 # Function: default()
 
 > **default**(`server`, `prisma`): `Promise`\<`void`\>
 
-Defined in: src/routes/fitness.ts:14
+Defined in: [fitness.ts:30](https://github.com/arniber21/hackNYU-backend/blob/a36628e39c1ef7700a4906f448b936b351e377d1/src/routes/fitness.ts#L30)
 
 Register fitness routes
 

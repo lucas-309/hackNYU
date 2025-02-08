@@ -1,14 +1,14 @@
-[**Recipe API Documentation**](../../../README.md)
+[**Recipe API Documentation**](../../README.md)
 
 ***
 
-[Recipe API Documentation](../../../modules.md) / [routes/recipes](../README.md) / default
+[Recipe API Documentation](../../README.md) / [recipes](../README.md) / default
 
 # Function: default()
 
 > **default**(`server`, `prisma`): `Promise`\<`void`\>
 
-Defined in: [src/routes/recipes.ts:15](https://github.com/arniber21/hackNYU-backend/blob/41dfafae9a025c928f718d5b479421bfcaba11bf/src/routes/recipes.ts#L15)
+Defined in: [recipes.ts:38](https://github.com/arniber21/hackNYU-backend/blob/a36628e39c1ef7700a4906f448b936b351e377d1/src/routes/recipes.ts#L38)
 
 Register recipe routes
 
