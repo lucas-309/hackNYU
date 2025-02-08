@@ -1,11 +1,13 @@
 import { build } from '../app';
 import { prismaMock } from './setup';
+import { FastifyInstance } from 'fastify';
 import supertest from 'supertest';
 
 describe('Auth Routes', () => {
-  const app = build();
+  let app: FastifyInstance;
 
   beforeAll(async () => {
+    app = build();
     await app.ready();
   });
 
@@ -29,7 +31,8 @@ describe('Auth Routes', () => {
         password: expect.any(String),
         salt: expect.any(String),
         createdAt: new Date(),
-        updatedAt: new Date()
+        updatedAt: new Date(),
+        fitnessGoalId: null
       });
 
       const response = await supertest(app.server)
@@ -53,7 +56,8 @@ describe('Auth Routes', () => {
         salt: 'salt',
         createdAt: new Date(),
         updatedAt: new Date(),
-        name: null
+        name: null,
+        fitnessGoalId: null
       });
 
       const response = await supertest(app.server)

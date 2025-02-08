@@ -1,15 +1,17 @@
 import { build } from '../app';
 import { prismaMock } from './setup';
+import { FastifyInstance } from 'fastify';
 import supertest from 'supertest';
 import { generateToken } from '../auth';
 
 describe('Recipe Routes', () => {
-  const app = build();
+  let app: FastifyInstance;
   let authToken: string;
 
   beforeAll(async () => {
+    app = build();
     await app.ready();
-    // Create a test user and generate token
+    
     const testUser = {
       id: '1',
       email: 'test@example.com',
@@ -17,7 +19,8 @@ describe('Recipe Routes', () => {
       password: 'hashedPassword',
       salt: 'salt',
       createdAt: new Date(),
-      updatedAt: new Date()
+      updatedAt: new Date(),
+      fitnessGoalId: null
     };
     authToken = generateToken(testUser);
   });
@@ -37,7 +40,9 @@ describe('Recipe Routes', () => {
           image: 'test.jpg',
           authorId: '1',
           createdAt: new Date(),
-          updatedAt: new Date()
+          updatedAt: new Date(),
+          savedByUserId: null,
+          viewedByUserId: null
         }
       ];
 
@@ -67,7 +72,9 @@ describe('Recipe Routes', () => {
         id: '2',
         authorId: '1',
         createdAt: new Date(),
-        updatedAt: new Date()
+        updatedAt: new Date(),
+        savedByUserId: null,
+        viewedByUserId: null
       });
 
       const response = await supertest(app.server)

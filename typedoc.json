@@ -1,0 +1,14 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": ["./src"],
+  "entryPointStrategy": "expand",
+  "out": "docs",
+  "excludePrivate": true,
+  "excludeProtected": true,
+  "excludeExternals": true,
+  "excludeNotDocumented": false,
+  "plugin": ["typedoc-plugin-markdown"],
+  "theme": "default",
+  "name": "Recipe API Documentation",
+  "exclude": ["**/tests/**/*", "**/node_modules/**/*"]
+} 
