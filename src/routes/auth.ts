@@ -7,6 +7,7 @@
 import { FastifyInstance } from "fastify";
 import { PrismaClient } from "@prisma/client";
 import { generateSalt, hashPassword, generateToken } from "../auth";
+import { Auth } from "../types/api";
 
 export interface RegisterRequest {
   /** User's email address */
@@ -40,6 +41,8 @@ export default async function authRoutes(server: FastifyInstance, prisma: Prisma
    * 
    * @endpoint POST /auth/register
    * @security none
+   * @request {@link Auth.RegisterRequest}
+   * @response {@link Auth.AuthResponse}
    * 
    * @example Request
    * ```json
@@ -64,8 +67,11 @@ export default async function authRoutes(server: FastifyInstance, prisma: Prisma
    * }
    * ```
    */
-  server.post<{ Body: RegisterRequest }>('/auth/register', async (request, reply) => {
-    const { email, password, name } = request.body as { email: string; password: string; name?: string };
+  server.post<{
+    Body: Auth.RegisterRequest;
+    Reply: Auth.AuthResponse | { error: string };
+  }>('/auth/register', async (request, reply) => {
+    const { email, password, name } = request.body;
 
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
@@ -93,6 +99,8 @@ export default async function authRoutes(server: FastifyInstance, prisma: Prisma
    * 
    * @endpoint POST /auth/login
    * @security none
+   * @request {@link Auth.LoginRequest}
+   * @response {@link Auth.AuthResponse}
    * 
    * @example Request
    * ```json
@@ -116,8 +124,11 @@ export default async function authRoutes(server: FastifyInstance, prisma: Prisma
    * }
    * ```
    */
-  server.post<{ Body: LoginRequest }>('/auth/login', async (request, reply) => {
-    const { email, password } = request.body as { email: string; password: string };
+  server.post<{
+    Body: Auth.LoginRequest;
+    Reply: Auth.AuthResponse | { error: string };
+  }>('/auth/login', async (request, reply) => {
+    const { email, password } = request.body;
 
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {

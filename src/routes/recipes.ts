@@ -6,7 +6,7 @@
 
 import { FastifyInstance } from "fastify";
 import { PrismaClient } from "@prisma/client";
-import '../plugins/types'; // Import type extensions
+import { Recipe } from "../types/api";
 
 export interface CreateRecipeRequest {
   /** Recipe name */
@@ -41,6 +41,7 @@ export default async function recipeRoutes(server: FastifyInstance, prisma: Pris
    * 
    * @endpoint GET /recipes
    * @security bearer
+   * @response {@link Recipe.RecipeResponse[]}
    * 
    * @example Success Response (200)
    * ```json
@@ -50,20 +51,18 @@ export default async function recipeRoutes(server: FastifyInstance, prisma: Pris
    *     "name": "Spaghetti Carbonara",
    *     "ingredients": "Pasta, eggs, pecorino...",
    *     "steps": "1. Boil pasta...",
-   *     "image": "https://..."
+   *     "image": "https://...",
+   *     "authorId": "user123"
    *   }
    * ]
    * ```
    */
-  server.get('/recipes', {
+  server.get<{
+    Reply: Recipe.RecipeResponse[];
+  }>('/recipes', {
     onRequest: [server.authenticate],
     handler: async (request, reply) => {
-      const recipes = await prisma.recipe.findMany({
-        include: {
-          savedBy: true,
-          viewedBy: true
-        }
-      });
+      const recipes = await prisma.recipe.findMany();
       return recipes;
     }
   });
@@ -73,6 +72,8 @@ export default async function recipeRoutes(server: FastifyInstance, prisma: Pris
    * 
    * @endpoint POST /recipes
    * @security bearer
+   * @request {@link Recipe.CreateRequest}
+   * @response {@link Recipe.RecipeResponse}
    * 
    * @example Request
    * ```json
@@ -83,42 +84,23 @@ export default async function recipeRoutes(server: FastifyInstance, prisma: Pris
    *   "image": "https://..."
    * }
    * ```
-   * 
-   * @example Success Response (200)
-   * ```json
-   * {
-   *   "id": "1",
-   *   "name": "Spaghetti Carbonara",
-   *   "ingredients": "Pasta, eggs, pecorino...",
-   *   "steps": "1. Boil pasta...",
-   *   "image": "https://..."
-   * }
-   * ```
    */
-  server.post<{ Body: CreateRecipeRequest }>('/recipes', {
+  server.post<{
+    Body: Recipe.CreateRequest;
+    Reply: Recipe.RecipeResponse;
+  }>('/recipes', {
     onRequest: [server.authenticate],
     handler: async (request, reply) => {
-      const { name, ingredients, steps, image } = request.body as { 
-        name: string; 
-        ingredients: string; 
-        steps: string; 
-        image: string; 
-      };
-
-      const recipe = await prisma.recipe.create({
-        data: { 
-          name, 
-          ingredients, 
-          steps, 
+      const { name, ingredients, steps, image } = request.body;
+      return await prisma.recipe.create({
+        data: {
+          name,
+          ingredients,
+          steps,
           image,
           authorId: request.user!.userId
-        },
-        include: {
-          savedBy: true,
-          viewedBy: true
         }
       });
-      return recipe;
     }
   });
 
@@ -128,7 +110,7 @@ export default async function recipeRoutes(server: FastifyInstance, prisma: Pris
       const { id } = request.params as { id: string };
       const userId = request.user!.userId;
 
-      const recipe = await prisma.recipe.findUnique({ 
+      const recipe = await prisma.recipe.findUnique({
         where: { id },
         include: {
           savedBy: true,
@@ -154,42 +136,44 @@ export default async function recipeRoutes(server: FastifyInstance, prisma: Pris
     }
   });
 
-  server.put('/recipes/:id', {
+  /**
+   * Update an existing recipe
+   * 
+   * @endpoint PUT /recipes/:id
+   * @security bearer
+   * @request {@link Recipe.UpdateRequest}
+   * @response {@link Recipe.RecipeResponse}
+   * 
+   * @example Error Response (403)
+   * ```json
+   * {
+   *   "error": "Not authorized to update this recipe"
+   * }
+   * ```
+   */
+  server.put<{
+    Params: { id: string };
+    Body: Recipe.UpdateRequest;
+    Reply: Recipe.RecipeResponse | { error: string };
+  }>('/recipes/:id', {
     onRequest: [server.authenticate],
     handler: async (request, reply) => {
-      const { id } = request.params as { id: string };
-      const userId = request.user!.userId;
-      const { name, ingredients, steps, image } = request.body as {
-        name?: string;
-        ingredients?: string;
-        steps?: string;
-        image?: string;
-      };
+      const { id } = request.params;
+      const { name, ingredients, steps, image } = request.body;
 
       const recipe = await prisma.recipe.findUnique({ where: { id } });
       if (!recipe) {
         return reply.status(404).send({ error: 'Recipe not found' });
       }
 
-      if (recipe.authorId !== userId) {
+      if (recipe.authorId !== request.user!.userId) {
         return reply.status(403).send({ error: 'Not authorized to update this recipe' });
       }
 
-      const updatedRecipe = await prisma.recipe.update({
+      return await prisma.recipe.update({
         where: { id },
-        data: {
-          name,
-          ingredients,
-          steps,
-          image
-        },
-        include: {
-          savedBy: true,
-          viewedBy: true
-        }
+        data: { name, ingredients, steps, image }
       });
-
-      return updatedRecipe;
     }
   });
 
