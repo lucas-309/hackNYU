@@ -10,7 +10,7 @@ import getpass
 import os
 
 if not os.environ.get("MISTRAL_API_KEY"):
-  os.environ["MISTRAL_API_KEY"] =  "yAQTi5kX4jbjdNICl5uVmTQv533le9LD"
+  os.environ["MISTRAL_API_KEY"] =  "oopsie whoopsie"
 
 from langchain.chat_models import init_chat_model
 
