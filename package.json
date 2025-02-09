@@ -3,15 +3,19 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "build": "tsc",
-    "start": "node dist/server.js",
+    "clean": "rm -rf build",
+    "build": "npm run clean && tsc -p tsconfig.json --outDir build",
+    "start": "node build/server.js",
+    "start:prod": "NODE_ENV=production node build/server.js",
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
     "postinstall": "prisma generate",
     "test": "jest",
     "test:watch": "jest --watch",
-    "docs": "typedoc"
+    "docs": "typedoc",
+    "docker:build": "docker build -t hacknyu .",
+    "docker:run": "docker run -p 3000:3000 --env-file .env hacknyu"
   },
   "repository": {
     "type": "git",

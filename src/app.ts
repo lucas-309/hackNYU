@@ -10,7 +10,13 @@ import authRoutes from "./routes/auth";
 import recipeRoutes from "./routes/recipes";
 import userRoutes from "./routes/user";
 import fitnessRoutes from "./routes/fitness";
-import { prismaMock } from "./tests/setup";
+
+// Only import prismaMock during testing
+let prismaMock: any;
+if (process.env.NODE_ENV === 'test') {
+  const { prismaMock: mock } = require("./tests/setup");
+  prismaMock = mock;
+}
 
 /**
  * Builds and configures the Fastify application
@@ -18,10 +24,13 @@ import { prismaMock } from "./tests/setup";
  */
 export function build() {
   const server = fastify({
-    logger: false // Disable logging during tests
+    logger: process.env.NODE_ENV !== 'test'
   });
   
-  const prisma = process.env.NODE_ENV === 'test' ? prismaMock : new PrismaClient();
+  // Use mock only during testing, real client otherwise
+  const prisma = process.env.NODE_ENV === 'test' ? 
+    prismaMock : 
+    new PrismaClient();
 
   // Register plugins
   server.register(authPlugin);
