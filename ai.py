@@ -12,10 +12,24 @@ import sys
 import json
 import logging
 from dotenv import load_dotenv
+import pkg_resources
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
+
+def check_dependencies():
+    required = {'langchain', 'langchain-core', 'python-dotenv', 'pydantic'}
+    installed = {pkg.key for pkg in pkg_resources.working_set}
+    missing = required - installed
+    
+    if missing:
+        logger.error(f"Missing required packages: {missing}")
+        sys.exit(1)
+    logger.debug("All required packages are installed")
+
+# Check dependencies first
+check_dependencies()
 
 # Load environment variables
 load_dotenv()

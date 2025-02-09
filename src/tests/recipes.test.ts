@@ -3,12 +3,14 @@ import { prismaMock } from './setup';
 import { FastifyInstance } from 'fastify';
 import supertest from 'supertest';
 import { generateToken } from '../auth';
-import { spawn } from 'child_process';
+import axios from 'axios';
 
-// Mock child_process
-jest.mock('child_process', () => ({
-  spawn: jest.fn()
-}));
+// Mock axios
+jest.mock('axios');
+const mockedAxios = axios as jest.Mocked<typeof axios>;
+
+// Mock environment variables
+const OLD_ENV = process.env;
 
 describe('Recipe Routes', () => {
   let app: FastifyInstance;
@@ -39,12 +41,21 @@ describe('Recipe Routes', () => {
   };
 
   beforeAll(async () => {
+    // Setup test environment
+    process.env = { 
+      ...OLD_ENV,
+      MISTRAL_API_KEY: 'test-api-key',
+      MISTRAL_API_URL: 'https://api.mistral.ai/v1/chat/completions'
+    };
+    
     app = build();
     await app.ready();
     authToken = generateToken(testUser);
   });
 
   afterAll(async () => {
+    // Restore environment
+    process.env = OLD_ENV;
     await app.close();
   });
 
@@ -107,50 +118,54 @@ describe('Recipe Routes', () => {
   });
 
   describe('POST /recipes/generate', () => {
+    beforeEach(() => {
+      // Reset axios mock
+      mockedAxios.post.mockReset();
+      
+      // Setup fresh environment for each test
+      process.env = { 
+        ...OLD_ENV,
+        MISTRAL_API_KEY: 'test-api-key',
+        MISTRAL_API_URL: 'https://api.mistral.ai/v1/chat/completions'
+      };
+    });
+
+    afterEach(() => {
+      // Cleanup environment after each test
+      process.env = OLD_ENV;
+    });
+
     it('should generate a recipe using AI', async () => {
-      // Mock the Python process
-      const mockSpawn = spawn as jest.MockedFunction<typeof spawn>;
-      mockSpawn.mockImplementation(() => {
-        const mockProcess = {
-          stdin: {
-            write: jest.fn(),
-            end: jest.fn()
-          },
-          stdout: {
-            on: jest.fn((event, callback) => {
-              if (event === 'data') {
-                callback(JSON.stringify({
-                  name: 'AI Generated Recipe',
-                  ingredients: [
-                    { item: 'chicken', quantity: '200g' },
-                    { item: 'rice', quantity: '100g' }
-                  ],
-                  instructions: [
-                    'Cook the chicken',
-                    'Prepare the rice'
-                  ],
-                  cooking_time: 30,
-                  difficulty: 'medium',
-                  nutritional_info: {
-                    calories: 500,
-                    protein: 40,
-                    carbs: 50,
-                    fat: 15
-                  }
-                }));
-              }
-            })
-          },
-          stderr: {
-            on: jest.fn()
-          },
-          on: jest.fn((event, callback) => {
-            if (event === 'close') {
-              callback(0);
+      // Add console.log to debug
+      console.log('API Key in test:', process.env.MISTRAL_API_KEY);
+      
+      // Mock successful AI response
+      mockedAxios.post.mockResolvedValueOnce({
+        data: {
+          choices: [{
+            message: {
+              content: JSON.stringify({
+                name: 'AI Generated Recipe',
+                ingredients: [
+                  { item: 'chicken', quantity: '200g' },
+                  { item: 'rice', quantity: '100g' }
+                ],
+                instructions: [
+                  'Cook the chicken',
+                  'Prepare the rice'
+                ],
+                cookingTime: 30,
+                difficulty: 'medium',
+                nutritionalInfo: {
+                  calories: 500,
+                  protein: 40,
+                  carbs: 50,
+                  fat: 15
+                }
+              })
             }
-          })
-        };
-        return mockProcess as any;
+          }]
+        }
       });
 
       // Mock Prisma responses
@@ -211,32 +226,13 @@ describe('Recipe Routes', () => {
       prismaMock.fitnessGoals.findFirst.mockResolvedValue(testFitnessGoals);
       prismaMock.user.findUnique.mockResolvedValue(testUser);
 
-      const mockSpawn = spawn as jest.MockedFunction<typeof spawn>;
-      mockSpawn.mockImplementation(() => {
-        const mockProcess = {
-          stdin: {
-            write: jest.fn(),
-            end: jest.fn()
-          },
-          stdout: {
-            on: jest.fn()
-          },
-          stderr: {
-            on: jest.fn((event, callback) => {
-              if (event === 'data') {
-                callback(Buffer.from('Error initializing AI model: Invalid API key'));
-              }
-            })
-          },
-          on: jest.fn((event, callback) => {
-            if (event === 'close') {
-              callback(1);
-            } else if (event === 'error') {
-              callback(new Error('Failed to start Python process'));
-            }
-          })
-        };
-        return mockProcess as any;
+      // Mock AI API error
+      mockedAxios.post.mockRejectedValueOnce({
+        response: {
+          data: {
+            error: 'Invalid API key'
+          }
+        }
       });
 
       const response = await supertest(app.server)
@@ -246,6 +242,7 @@ describe('Recipe Routes', () => {
           ingredients: ['chicken', 'rice']
         });
 
+      // This test SHOULD get a 500 status - it's testing error handling
       expect(response.status).toBe(500);
       expect(response.body).toHaveProperty('error', 'Failed to generate recipe');
     });
@@ -260,6 +257,74 @@ describe('Recipe Routes', () => {
         });
 
       expect(response.status).toBe(400);
+    });
+
+    it('should use correct API key in request', async () => {
+      // First mock the database responses
+      prismaMock.fitnessGoals.findFirst.mockResolvedValue(testFitnessGoals);
+      prismaMock.user.findUnique.mockResolvedValue(testUser);
+      prismaMock.recipe.create.mockResolvedValue({
+        id: '1',
+        name: 'AI Generated Recipe',
+        ingredients: JSON.stringify([
+          { item: 'chicken', quantity: '200g' },
+          { item: 'rice', quantity: '100g' }
+        ]),
+        steps: 'Cook the chicken\nPrepare the rice',
+        image: '',
+        authorId: testUser.id,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        savedByUserId: null,
+        viewedByUserId: null
+      });
+
+      // Mock successful response
+      mockedAxios.post.mockResolvedValueOnce({
+        data: {
+          choices: [{
+            message: {
+              content: JSON.stringify({
+                name: 'AI Generated Recipe',
+                ingredients: [
+                  { item: 'chicken', quantity: '200g' },
+                  { item: 'rice', quantity: '100g' }
+                ],
+                instructions: [
+                  'Cook the chicken',
+                  'Prepare the rice'
+                ],
+                cookingTime: 30,
+                difficulty: 'medium',
+                nutritionalInfo: {
+                  calories: 500,
+                  protein: 40,
+                  carbs: 50,
+                  fat: 15
+                }
+              })
+            }
+          }]
+        }
+      });
+
+      await supertest(app.server)
+        .post('/recipes/generate')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          ingredients: ['chicken', 'rice']
+        });
+
+      // Verify API key was used in request
+      expect(mockedAxios.post).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.any(Object),
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            'Authorization': `Bearer test-api-key`
+          })
+        })
+      );
     });
   });
 }); 
