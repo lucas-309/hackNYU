@@ -10,19 +10,46 @@ import getpass
 import os
 import sys
 import json
+import logging
 from dotenv import load_dotenv
+import pkg_resources
+
+# Set up logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+
+def check_dependencies():
+    required = {'langchain', 'langchain-core', 'python-dotenv', 'pydantic'}
+    installed = {pkg.key for pkg in pkg_resources.working_set}
+    missing = required - installed
+    
+    if missing:
+        logger.error(f"Missing required packages: {missing}")
+        sys.exit(1)
+    logger.debug("All required packages are installed")
+
+# Check dependencies first
+check_dependencies()
 
 # Load environment variables
 load_dotenv()
 
-# Get API key from environment
-MISTRAL_API_KEY = os.getenv('MISTRAL_API_KEY')
-if not MISTRAL_API_KEY:
-    raise ValueError("MISTRAL_API_KEY not found in environment variables")
+try:
+    # Get API key from environment
+    MISTRAL_API_KEY = os.getenv('MISTRAL_API_KEY')
+    if not MISTRAL_API_KEY:
+        raise ValueError("MISTRAL_API_KEY not found in environment variables")
+    
+    os.environ["MISTRAL_API_KEY"] = MISTRAL_API_KEY
+    from langchain.chat_models import init_chat_model
+    
+    logger.debug("Initializing model...")
+    model = init_chat_model("mistral-small-latest", model_provider="mistralai")
+    logger.debug("Model initialized successfully")
 
-from langchain.chat_models import init_chat_model
-
-model = init_chat_model("mistral-small-latest", model_provider="mistralai")
+except Exception as e:
+    logger.error(f"Error initializing AI model: {str(e)}")
+    sys.exit(1)
 
 class Recipe(BaseModel):
     name: str
@@ -120,11 +147,22 @@ class RecipeGenerator:
         return "- " + "\n- ".join(pref_strings) if pref_strings else ""
 
 if __name__ == "__main__":
-    input_data = json.loads(sys.stdin.read())
-    generator = RecipeGenerator()
-    recipe = generator.generate_recipe(input_data)
-    
-    if recipe:
-        print(json.dumps(recipe.model_dump()))
-    else:
+    try:
+        logger.debug("Reading input from stdin...")
+        input_data = json.loads(sys.stdin.read())
+        
+        logger.debug("Creating generator...")
+        generator = RecipeGenerator()
+        
+        logger.debug("Generating recipe...")
+        recipe = generator.generate_recipe(input_data)
+        
+        if recipe:
+            logger.debug("Recipe generated successfully")
+            print(json.dumps(recipe.model_dump()))
+        else:
+            logger.error("Failed to generate recipe")
+            sys.exit(1)
+    except Exception as e:
+        logger.error(f"Error in main execution: {str(e)}")
         sys.exit(1)

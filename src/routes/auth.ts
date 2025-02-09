@@ -26,8 +26,12 @@ export interface LoginRequest {
 }
 
 export interface AuthResponse {
-  /** JWT token for authentication */
   token: string;
+  user: {
+    id: string;
+    email: string;
+    name?: string;
+  };
 }
 
 /**
@@ -56,7 +60,12 @@ export default async function authRoutes(server: FastifyInstance, prisma: Prisma
    * @example Success Response (200)
    * ```json
    * {
-   *   "token": "eyJhbGciOiJIUzI1NiIs..."
+   *   "token": "eyJhbGciOiJIUzI1NiIs...",
+   *   "user": {
+   *     "id": "1",
+   *     "email": "user@example.com",
+   *     "name": "John Doe"
+   *   }
    * }
    * ```
    * 
@@ -69,29 +78,45 @@ export default async function authRoutes(server: FastifyInstance, prisma: Prisma
    */
   server.post<{
     Body: Auth.RegisterRequest;
-    Reply: Auth.AuthResponse | { error: string };
+    Reply: AuthResponse | { error: string };
   }>('/auth/register', async (request, reply) => {
-    const { email, password, name } = request.body;
+    server.log.info('Registration attempt', { email: request.body.email });
+    
+    try {
+      const { email, password, name } = request.body;
 
-    const existingUser = await prisma.user.findUnique({ where: { email } });
-    if (existingUser) {
-      return reply.status(400).send({ error: 'Email already registered' });
+      const existingUser = await prisma.user.findUnique({ where: { email } });
+      if (existingUser) {
+        return reply.status(400).send({ error: 'Email already registered' });
+      }
+
+      const salt = generateSalt();
+      const hashedPassword = hashPassword(password, salt);
+
+      const user = await prisma.user.create({
+        data: {
+          email,
+          name,
+          password: hashedPassword,
+          salt,
+        },
+      });
+
+      const token = generateToken(user);
+      
+      // Return both token and user data
+      return {
+        token,
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name
+        }
+      };
+    } catch (err) {
+      server.log.error('Registration failed:', err);
+      return reply.status(500).send({ error: 'Registration failed' });
     }
-
-    const salt = generateSalt();
-    const hashedPassword = hashPassword(password, salt);
-
-    const user = await prisma.user.create({
-      data: {
-        email,
-        name,
-        password: hashedPassword,
-        salt,
-      },
-    });
-
-    const token = generateToken(user);
-    return { token };
   });
 
   /**
@@ -113,7 +138,12 @@ export default async function authRoutes(server: FastifyInstance, prisma: Prisma
    * @example Success Response (200)
    * ```json
    * {
-   *   "token": "eyJhbGciOiJIUzI1NiIs..."
+   *   "token": "eyJhbGciOiJIUzI1NiIs...",
+   *   "user": {
+   *     "id": "1",
+   *     "email": "user@example.com",
+   *     "name": "John Doe"
+   *   }
    * }
    * ```
    * 
@@ -126,21 +156,35 @@ export default async function authRoutes(server: FastifyInstance, prisma: Prisma
    */
   server.post<{
     Body: Auth.LoginRequest;
-    Reply: Auth.AuthResponse | { error: string };
+    Reply: AuthResponse | { error: string };
   }>('/auth/login', async (request, reply) => {
-    const { email, password } = request.body;
+    try {
+      const { email, password } = request.body;
 
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) {
-      return reply.status(401).send({ error: 'Invalid credentials' });
+      const user = await prisma.user.findUnique({ where: { email } });
+      if (!user) {
+        return reply.status(401).send({ error: 'Invalid credentials' });
+      }
+
+      const hashedPassword = hashPassword(password, user.salt);
+      if (hashedPassword !== user.password) {
+        return reply.status(401).send({ error: 'Invalid credentials' });
+      }
+
+      const token = generateToken(user);
+      
+      // Return both token and user data
+      return {
+        token,
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name
+        }
+      };
+    } catch (err) {
+      server.log.error('Login failed:', err);
+      return reply.status(500).send({ error: 'Login failed' });
     }
-
-    const hashedPassword = hashPassword(password, user.salt);
-    if (hashedPassword !== user.password) {
-      return reply.status(401).send({ error: 'Invalid credentials' });
-    }
-
-    const token = generateToken(user);
-    return { token };
   });
 } 

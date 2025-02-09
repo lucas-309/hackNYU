@@ -257,64 +257,134 @@ export default async function recipeRoutes(server: FastifyInstance, prisma: Pris
    */
   server.post<{
     Body: Recipe.GenerateRequest;
-    Reply: Recipe.RecipeResponse | { error: string };
+    Reply: Recipe.GeneratedRecipe | { error: string };
   }>('/recipes/generate', {
     onRequest: [server.authenticate],
     handler: async (request, reply) => {
-      const userId = request.user!.userId;
-      const { 
-        ingredients,          // Required ingredients to use
-        skillLevel = 2,      // Cooking skill level (1-3, default: 2)
-        preferences,         // Dietary preferences (vegetarian, vegan, etc.)
-        maxCookingTime      // Maximum cooking time in minutes
-      } = request.body;
-
-      // Ensure user has set fitness goals
-      const fitnessGoals = await prisma.fitnessGoals.findFirst({
-        where: { userId }
-      });
-
-      if (!fitnessGoals) {
-        return reply.status(400).send({ 
-          error: 'Please set your fitness goals before generating recipes' 
-        });
-      }
-
-      // Get user profile for additional preferences
-      const user = await prisma.user.findUnique({
-        where: { id: userId }
-      });
-
-      if (!user) {
-        return reply.status(404).send({ error: 'User not found' });
-      }
-
       try {
-        // Generate recipe using AI
-        const recipeData = await generateRecipe(
-          user, 
-          fitnessGoals, 
-          ingredients,
-          skillLevel,
-          preferences,
-          maxCookingTime
-        );
-        
-        // Save generated recipe to database
-        const recipe = await prisma.recipe.create({
-          data: {
-            ...recipeData,
-            authorId: userId
-          }
+        const userId = request.user!.userId;
+        server.log.info('Recipe generation request:', { userId, params: request.body });
+
+        // Ensure user has set fitness goals
+        const fitnessGoals = await prisma.fitnessGoals.findFirst({
+          where: { userId }
         });
 
-        return recipe;
+        if (!fitnessGoals) {
+          return reply.status(400).send({ 
+            error: 'Please set your fitness goals before generating recipes' 
+          });
+        }
+
+        // Get user profile for additional preferences
+        const user = await prisma.user.findUnique({
+          where: { id: userId }
+        });
+
+        if (!user) {
+          return reply.status(404).send({ error: 'User not found' });
+        }
+
+        try {
+          // Generate recipe using AI
+          const recipeData = await generateRecipe(
+            user, 
+            fitnessGoals, 
+            request.body.ingredients,
+            request.body.skillLevel,
+            request.body.preferences,
+            request.body.maxCookingTime
+          );
+          
+          // Save generated recipe to database
+          const recipe = await prisma.recipe.create({
+            data: {
+              ...recipeData,
+              authorId: userId
+            }
+          });
+
+          server.log.info('Recipe generated successfully:', { recipeId: recipe.id });
+          return recipe;
+        } catch (error) {
+          server.log.error('Recipe generation error:', error);
+          return reply.status(500).send({ 
+            error: 'Failed to generate recipe',
+            details: error instanceof Error ? error.message : 'Unknown error'
+          });
+        }
       } catch (error) {
-        console.error('Recipe generation error:', error);
+        server.log.error('Recipe generation route error:', error);
         return reply.status(500).send({ 
-          error: 'Failed to generate recipe' 
+          error: 'Failed to process recipe generation request' 
         });
       }
+    }
+  });
+
+  // New routes
+  server.post<{ Params: { id: string } }>('/recipes/:id/favorite', {
+    onRequest: [server.authenticate],
+    handler: async (request, reply) => {
+      const { id } = request.params;
+      const userId = request.user!.userId;
+
+      const recipe = await prisma.recipe.update({
+        where: { id },
+        data: {
+          favoritedBy: {
+            connect: { id: userId }
+          }
+        }
+      });
+
+      await prisma.activity.create({
+        data: {
+          type: 'FAVORITE',
+          userId,
+          recipeId: id
+        }
+      });
+
+      return recipe;
+    }
+  });
+
+  server.delete<{ Params: { id: string } }>('/recipes/:id/favorite', {
+    onRequest: [server.authenticate],
+    handler: async (request, reply) => {
+      const { id } = request.params;
+      const userId = request.user!.userId;
+
+      await prisma.recipe.update({
+        where: { id },
+        data: {
+          favoritedBy: {
+            disconnect: { id: userId }
+          }
+        }
+      });
+
+      return { success: true };
+    }
+  });
+
+  server.get('/recipes/recommended', {
+    onRequest: [server.authenticate],
+    handler: async (request, reply) => {
+      const userId = request.user!.userId;
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        include: { fitnessGoal: true }
+      });
+
+      // Implement recommendation logic based on user's fitness goals
+      const recommendations = await prisma.recipe.findMany({
+        take: 10,
+        // Add recommendation criteria
+      });
+
+      return recommendations;
     }
   });
 } 

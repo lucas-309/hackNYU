@@ -30,6 +30,11 @@ export namespace Auth {
   export interface AuthResponse {
     /** JWT token for authentication */
     token: string;
+    user: {
+      id: string;
+      email: string;
+      name?: string;
+    };
   }
 }
 
