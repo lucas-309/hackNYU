@@ -71,4 +71,39 @@ export default async function userRoutes(server: FastifyInstance, prisma: Prisma
       return recipeHistory;
     }
   });
+
+  server.get('/user/profile', {
+    onRequest: [server.authenticate],
+    handler: async (request, reply) => {
+      const userId = request.user!.userId;
+      
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        include: {
+          fitnessGoal: true,
+          savedRecipes: true,
+          favoriteRecipes: true
+        }
+      });
+
+      return user;
+    }
+  });
+
+  server.put('/user/preferences', {
+    onRequest: [server.authenticate],
+    handler: async (request, reply) => {
+      const userId = request.user!.userId;
+      const preferences = request.body;
+
+      const user = await prisma.user.update({
+        where: { id: userId },
+        data: {
+          preferences
+        }
+      });
+
+      return user;
+    }
+  });
 } 

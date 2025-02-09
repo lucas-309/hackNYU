@@ -24,8 +24,16 @@ model User {
   fitnessGoalId String?
   recipes       Recipe[]      @relation("UserRecipes")
   savedRecipes  Recipe[]      @relation("SavedRecipes")
+  favoriteRecipes Recipe[]    @relation("FavoriteRecipes")
   recipeHistory Recipe[]      @relation("RecipeHistory")
   fitnessGoal   FitnessGoals? @relation(fields: [fitnessGoalId], references: [id])
+  preferences   Json?
+  following     User[]        @relation("UserFollows", fields: [followingIds], references: [id])
+  followingIds  String[]      @default([])
+  followers     User[]        @relation("UserFollows", fields: [followerIds], references: [id])
+  followerIds   String[]      @default([])
+  activities    Activity[]
+  comments      Comment[]
 }
 
 model FitnessGoals {
@@ -43,17 +51,42 @@ model FitnessGoals {
 }
 
 model Recipe {
-  id             String   @id @default(cuid()) @map("_id")
+  id             String    @id @default(cuid()) @map("_id")
   name           String
   ingredients    String
   steps          String
   image          String
   authorId       String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  savedBy        User?    @relation("SavedRecipes", fields: [savedByUserId], references: [id])
-  viewedBy       User?    @relation("RecipeHistory", fields: [viewedByUserId], references: [id])
-  author         User?    @relation("UserRecipes", fields: [authorId], references: [id])
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  rating         Float?
+  shareCount     Int       @default(0)
+  viewCount      Int       @default(0)
+  savedBy        User?     @relation("SavedRecipes", fields: [savedByUserId], references: [id])
+  favoritedBy    User?     @relation("FavoriteRecipes", fields: [favoritedByUserId], references: [id])
+  viewedBy       User?     @relation("RecipeHistory", fields: [viewedByUserId], references: [id])
+  author         User?     @relation("UserRecipes", fields: [authorId], references: [id])
   savedByUserId  String?
+  favoritedByUserId String?
   viewedByUserId String?
+  comments       Comment[]
+}
+
+model Comment {
+  id        String   @id @default(cuid()) @map("_id")
+  content   String
+  recipeId  String
+  userId    String
+  createdAt DateTime @default(now())
+  recipe    Recipe   @relation(fields: [recipeId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model Activity {
+  id        String   @id @default(cuid()) @map("_id")
+  type      String
+  userId    String
+  recipeId  String?
+  timestamp DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
 }

@@ -10,6 +10,7 @@ import authRoutes from "./routes/auth";
 import recipeRoutes from "./routes/recipes";
 import userRoutes from "./routes/user";
 import fitnessRoutes from "./routes/fitness";
+import cors from '@fastify/cors';
 
 // Only import prismaMock during testing
 let prismaMock: any;
@@ -27,6 +28,14 @@ export function build() {
     logger: process.env.NODE_ENV !== 'test'
   });
   
+  // Register CORS
+  server.register(cors, {
+    origin: ['http://localhost:3001'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true
+  });
+
   // Use mock only during testing, real client otherwise
   const prisma = process.env.NODE_ENV === 'test' ? 
     prismaMock : 
